@@ -36,21 +36,36 @@ source "$LIBDIR/testing.sh"
 failed=$((0))
 test_summary=""
 sudo dmesg >/tmp/e2e_dmesg_base.log
-for t in "$TESTDIR"/*.sh; do
-    if [ -n "$start_at_test" ]
-    then
-        if [ "$t" == "$start_at_test" ]
-        then
+
+# file containing the list of test files to run
+CONFIG_FILE="$TESTDIR/test_list.conf"
+
+is_commented() {
+    local line="$1"
+    [[ "$line" =~ ^#.* ]] && return 0
+    return 1
+}
+
+while IFS= read -r test_file; do
+    if is_commented "$test_file"; then
+        echo "Skipping commented out test: $test_file"
+        continue
+    fi
+
+    [[ -z "$test_file" ]] && continue
+
+    t="$TESTDIR/$test_file"
+
+    if [ -n "$start_at_test" ]; then
+        if [ "$t" == "$start_at_test" ]; then
             start_at_test=""
         else
             continue
         fi
     fi
 
-    if [ -n "$finish_before_test" ]
-    then
-        if [ "$t" == "$finish_before_test" ]
-        then
+    if [ -n "$finish_before_test" ]; then
+        if [ "$t" == "$finish_before_test" ]; then
             break
         fi
     fi
@@ -59,8 +74,11 @@ for t in "$TESTDIR"/*.sh; do
         failed=$((failed + 1))
         [[ ${FAIL_FAST:-false} != "true" ]] || break
     fi
+
     sudo dmesg >/tmp/e2e_dmesg_base.log
-done
+
+done < "$CONFIG_FILE"
+
 echo "TEST SUMMARY"
 echo "------------"
 echo -e "$test_summary"
